@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>文件浏览器</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+<!--    <link rel="stylesheet" href="css/element.css">-->
+    <style>
+        .box-card{
+            margin: 5px 0;
+        }
+        @media screen and (max-width: 480px) {
+            /* 修正手机端弹窗大小 */
+            .el-message-box{
+                width: 80%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="app"  style="margin:0 auto;max-width: 480px">
+    <div style="margin:2px ">
+
+        <el-card class="box-card" style="width: 100%" v-if="dir === '首页'">
+            <div><i class="el-icon-folder-opened"> 文件浏览器</i></div>
+        </el-card>
+
+        <el-card class="box-card" style="width: 100%" v-if="dir !== '首页'">
+            <el-page-header title="" @back="goBack" :content="dir"></el-page-header>
+        </el-card>
+
+        <el-card class="box-card" style="width: 100%">
+            <el-table :data="files" size="mini" @row-click="onList" style="width: 100%">
+
+                <el-table-column label="" width="30">
+                    <template slot-scope="scope">
+                        <el-image style="width: 22px; height: 22px;" v-if="scope.row.type=='dir'" src="./images/folder.png" fit="fill"></el-image>
+                        <el-image style="width: 22px; height: 22px;" v-else src="./images/file.png" fit="fill"></el-image>
+                    </template>
+                </el-table-column>
+
+                <el-table-column label="文件名">
+                    <template slot-scope="scope">
+                        <p>{{ scope.row.name }}</p>
+                        <span style="color:#AAA;font-size: 12px;">{{ formatDate(scope.row.time*1000,'Y-M-D h:m') }} {{ formatSize(scope.row.size) }}</span>
+                    </template>
+                </el-table-column>
+
+                <el-table-column label="" width="80">
+                    <template slot-scope="scope">
+                        <div style="display: flex;justify-content: flex-end;">
+                            <a v-if="scope.row.type=='file'" style="color:#000;" @click="more(scope.row.name)"><i class="el-icon-more-outline"></i></a>
+                        </div>
+                    </template>
+                </el-table-column>
+
+            </el-table>
+        </el-card>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2.7.10"></script>
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<!--<script src="js/vue.js"></script>-->
+<!--<script src="js/element.js"></script>-->
+<!--<script src="js/axios.js"></script>-->
+<script>
+    const vm = new Vue({
+        el: '#app',
+        data() {
+            return {
+               files: [],
+                dir: "首页",
+            }
+        },
+        mounted(){
+            if (sessionStorage.getItem("dir") == null) {
+                sessionStorage.setItem("dir","首页")
+            }
+            if (window.location.search.indexOf('?') === -1) {
+                sessionStorage.setItem("dir","首页")
+            }
+            this.dir = sessionStorage.getItem("dir")
+            this.loadFiles()
+        },
+        methods:{
+            // 文件列表加载
+            loadFiles() {
+                const that = this
+
+                // 读取文件列表
+                axios.get('/api/get/files/list' + window.location.search)
+                    .then(function (response) {
+                        const data = response.data
+
+                        if (data.code !== 200) {
+                            that.$message.error(data.msg);
+                            return
+                        }
+
+                        that.files = data. data
+
+                    })
+                    .catch(function (error) {
+                        that.$notify({
+                            title: '出现错误',
+                            message: '目录不存在或已被删除',
+                            type: 'error'
+                        });
+                    });
+            },
+
+            // 列表单击事件
+            onList(e) {
+                if (e.type !== "dir") {
+                    return
+                }
+                if (window.location.search.indexOf('?') !== -1) {
+                    window.location.href = window.location.search + '/' + e.name
+                } else {
+                    window.location.href = '?dir=' + e.name
+                }
+                sessionStorage.setItem("dir",e.name)
+            },
+
+            goBack() {
+                window.history.back()
+            },
+
+            more(name) {
+                this.$confirm('当前选择的文件是：' + name, '操作', {
+                    distinguishCancelAndClose: true,
+                    confirmButtonText: '下载文件', // 1
+                    cancelButtonText: '复制下载链接', // 2
+                }).then(() => { // 1
+                    this.download(name)
+                }).catch((action) => { // 2
+                    action === 'cancel' ? this.copy(name) : null
+                });
+            },
+
+            // 复制下载链接
+            copy(fileName) {
+                let dir = window.location.search
+                const ele = document.createElement("input");
+
+                dir += '/' + dir.replace("?dir=",'')
+                dir = dir !== '' ? dir + '/' : dir
+                ele.setAttribute("value", window.location.origin + "/files" + dir + fileName);
+                document.body.appendChild(ele)
+                ele.select();
+                document.execCommand("copy");
+                document.body.removeChild(ele);
+
+                this.$notify({
+                    title: '复制成功',
+                    message: '已复制文件下载地址',
+                    type: 'success'
+                });
+
+            },
+
+            // 下载文件
+            download(fileName) {
+
+                const loading = this.$loading({
+                    lock: true,
+                    text: '正在提取文件...',
+                    spinner: 'el-icon-loading',
+                    background: 'rgba(0, 0, 0, 0.7)'
+                });
+
+                let dir = window.location.search
+                const el = document.createElement('a');
+
+                el.style.display = 'none';
+                el.setAttribute('target', '_blank');
+                fileName && el.setAttribute('download', fileName);
+                dir += '/' + dir.replace("?dir=",'')
+                dir = dir !== '' ? dir + '/' : dir
+                el.href = "/files/" + dir + fileName;
+                document.body.appendChild(el);
+                el.click();
+
+                setTimeout(()=>{
+                    document.body.removeChild(el);
+                    loading.close();
+                },500)
+            },
+
+            // 格式化文件大小
+            formatSize (limit) {
+                if (!limit || Number(limit) === 0) return ''
+                limit = Number(limit)
+                // 将size B转换成 M
+                let size = ''
+                if (limit < 1024) {
+                    //小于1KB，则转化成B
+                    size = limit.toFixed(2) + 'B'
+                } else if (limit < 1024 * 1024) {
+                    //小于1MB，则转化成KB
+                    size = (limit / 1024).toFixed(2) + 'KB'
+                } else if (limit < 1024 * 1024 * 1024) {
+                    //小于1GB，则转化成MB
+                    size = (limit / (1024 * 1024)).toFixed(2) + 'MB'
+                } else {
+                    //其他转化成GB
+                    size = (limit / (1024 * 1024 * 1024)).toFixed(2) + 'GB'
+                }
+
+                let sizeStr = size + '' //转成字符串
+                let index = sizeStr.indexOf('.') //获取小数点处的索引
+                let dou = sizeStr.substr(index + 1, 2) //获取小数点后两位的值
+                if (dou === '00') {
+                    //判断后两位是否为00，如果是则删除00
+                    return sizeStr.substring(0, index) + sizeStr.substr(index + 3, 2)
+                }
+                return size
+            },
+
+            // 格式化时间
+            formatDate(value = Date.now(), format = "Y-M-D h:m:s") {
+                const formatNumber = n => `0${n}`.slice(-2);
+                const date = new Date(value);
+                const formatList = ["Y", "M", "D", "h", "m", "s"];
+                const resultList = [];
+                resultList.push(date.getFullYear().toString());
+                resultList.push(formatNumber(date.getMonth() + 1));
+                resultList.push(formatNumber(date.getDate()));
+                resultList.push(formatNumber(date.getHours()));
+                resultList.push(formatNumber(date.getMinutes()));
+                resultList.push(formatNumber(date.getSeconds()));
+                for (let i = 0; i < resultList.length; i++) {
+                    format = format.replace(formatList[i], resultList[i]);
+                }
+                return format;
+            }
+
+        }
+    })
+</script>
+</body>
+</html>
+
