@@ -15,7 +15,6 @@ func (f Files) GetFilesList(c *gin.Context) {
 
 	dir := c.Query("dir")
 
-	dir = strings.Replace(dir, ".", "", -1)
 	dir = strings.Replace(dir, "./", "", -1)
 	dir = strings.Replace(dir, "../", "", -1)
 
