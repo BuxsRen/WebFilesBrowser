@@ -60,6 +60,8 @@
             </el-table>
         </el-card>
 
+        <div style="text-align: center;font-size: 12px;color: #AAA;"><p>Copyright @ 2022 Break All Rights Reserved.</p></div>
+
     </div>
 </div>
 
@@ -79,12 +81,13 @@
             }
         },
         mounted(){
-            if (sessionStorage.getItem("dir") == null) {
-                sessionStorage.setItem("dir","首页")
-            }
             if (window.location.search.indexOf('?') === -1) {
                 sessionStorage.setItem("dir","首页")
+            } else if (sessionStorage.getItem("dir") == null)  {
+                window.location.href = "/"
+                sessionStorage.setItem("dir","首页")
             }
+
             this.dir = sessionStorage.getItem("dir")
             this.loadFiles()
         },
@@ -112,6 +115,9 @@
                             message: '目录不存在或已被删除',
                             type: 'error'
                         });
+                        setTimeout(()=>{
+                            window.location.href = '/'
+                        },1000)
                     });
             },
 
@@ -146,15 +152,12 @@
 
             // 复制下载链接
             copy(fileName) {
-                let dir = window.location.search
                 const ele = document.createElement("input");
-
-                dir += '/' + dir.replace("?dir=",'')
-                dir = dir !== '' ? dir + '/' : dir
-                ele.setAttribute("value", window.location.origin + "/files" + dir + fileName);
+                ele.setAttribute("value", this.getUrl(fileName));
                 document.body.appendChild(ele)
                 ele.select();
                 document.execCommand("copy");
+
                 document.body.removeChild(ele);
 
                 this.$notify({
@@ -175,15 +178,14 @@
                     background: 'rgba(0, 0, 0, 0.7)'
                 });
 
-                let dir = window.location.search
+
                 const el = document.createElement('a');
 
                 el.style.display = 'none';
                 el.setAttribute('target', '_blank');
                 fileName && el.setAttribute('download', fileName);
-                dir += '/' + dir.replace("?dir=",'')
-                dir = dir !== '' ? dir + '/' : dir
-                el.href = "/files/" + dir + fileName;
+
+                el.href = this.getUrl(fileName)
                 document.body.appendChild(el);
                 el.click();
 
@@ -191,6 +193,14 @@
                     document.body.removeChild(el);
                     loading.close();
                 },500)
+            },
+
+            getUrl(fileName) {
+                let dir = window.location.search
+                dir = dir.replace("?dir=",'')
+                dir = dir !== '' ? '/' + dir + '/' : dir
+                let path = window.location.origin + "/files" + dir + fileName
+                return decodeURI(path)
             },
 
             // 格式化文件大小
