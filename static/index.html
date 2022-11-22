@@ -198,7 +198,7 @@
             getUrl(fileName) {
                 let dir = window.location.search
                 dir = dir.replace("?dir=",'')
-                dir = dir !== '' ? '/' + dir + '/' : dir
+                dir = dir !== '' ? '/' + dir + '/' : '/' + dir
                 let path = window.location.origin + "/files" + dir + fileName
                 return decodeURI(path)
             },
